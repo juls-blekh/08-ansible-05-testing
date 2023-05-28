@@ -12,5 +12,4 @@
   ansible.builtin.apt:
     deb: https://packages.timber.io/vector/{{ vector_version }}/vector_{{ vector_version }}-1_{{ architecture_name }}.deb
     state: present
-  #notify: restart vector service
-  
+  notify: restart vector service
