@@ -1,49 +1,66 @@
-# Домашнее задание к занятию 4 «Работа с roles»
+# Домашнее задание к занятию 5 «Тестирование roles»
 
 ## Подготовка к выполнению
 
-1. * Необязательно. Познакомьтесь с [LightHouse](https://youtu.be/ymlrNlaHzIY?t=929).
-2. Создайте два пустых публичных репозитория в любом своём проекте: vector-role и lighthouse-role.
-3. Добавьте публичную часть своего ключа к своему профилю на GitHub.
+1. Установите molecule: `pip3 install "molecule==3.5.2"`.
+2. Выполните `docker pull aragast/netology:latest` —  это образ с podman, tox и несколькими пайтонами (3.7 и 3.9) внутри.
 
 ## Основная часть
 
-Ваша цель — разбить ваш playbook на отдельные roles. 
+Ваша цель — настроить тестирование ваших ролей. 
 
-Задача — сделать roles для ClickHouse, Vector и LightHouse и написать playbook для использования этих ролей. 
+Задача — сделать сценарии тестирования для vector. 
 
-Ожидаемый результат — существуют три ваших репозитория: два с roles и один с playbook.
+Ожидаемый результат — все сценарии успешно проходят тестирование ролей.
 
-**Что нужно сделать**
+### Molecule
 
-1. Создайте в старой версии playbook файл `requirements.yml` и заполните его содержимым:
+1. Запустите  `molecule test -s centos_7` внутри корневой директории clickhouse-role, посмотрите на вывод команды. Данная команда может отработать с ошибками, это нормально. Наша цель - посмотреть как другие в реальном мире используют молекулу.  
+![img.png](img/clickhouse-test.png)
+2. Перейдите в каталог с ролью vector-role и создайте сценарий тестирования по умолчанию при помощи `molecule init scenario --driver-name docker`.  
+![img.png](img/default-test-1.png)
+![img.png](img/default-test-2.png)
+3. Добавьте несколько разных дистрибутивов (centos:8, ubuntu:latest) для инстансов и протестируйте роль, исправьте найденные ошибки, если они есть.  
+![img.png](img/c7+ubuntu-test1.png)
+![img.png](img/c7+ubuntu-test2.png)
+4. Добавьте несколько assert в verify.yml-файл для  проверки работоспособности vector-role (проверка, что конфиг валидный, проверка успешности запуска и др.).   
+Добавлена проверка конфига vector.yaml  
+![img.png](img/assert-vector.png)
+5. Запустите тестирование роли повторно и проверьте, что оно прошло успешно.
+5. Добавьте новый тег на коммит с рабочим сценарием в соответствии с семантическим версионированием.  
 
-   ```yaml
-   ---
-     - src: git@github.com:AlexeySetevoi/ansible-clickhouse.git
-       scm: git
-       version: "1.11.0"
-       name: clickhouse 
-   ```
 
-2. При помощи `ansible-galaxy` скачайте себе эту роль.
-3. Создайте новый каталог с ролью при помощи `ansible-galaxy role init vector-role`.
-4. На основе tasks из старого playbook заполните новую role. Разнесите переменные между `vars` и `default`. 
-5. Перенести нужные шаблоны конфигов в `templates`.
-6. Опишите в `README.md` обе роли и их параметры.
-7. Повторите шаги 3–6 для LightHouse. Помните, что одна роль должна настраивать один продукт.
-8. Выложите все roles в репозитории. Проставьте теги, используя семантическую нумерацию. Добавьте roles в `requirements.yml` в playbook.
-9. Переработайте playbook на использование roles. Не забудьте про зависимости LightHouse и возможности совмещения `roles` с `tasks`.
-10. Выложите playbook в репозиторий.
-11. В ответе дайте ссылки на оба репозитория с roles и одну ссылку на репозиторий с playbook.  
-[playbook](https://github.com/juls-blekh/08-ansible-04-role)  
-[lighthouse](https://github.com/juls-blekh/lighthouse-role)    
-[vector](https://github.com/juls-blekh/vector-role)  
+### Tox
 
----
+1. Добавьте в директорию с vector-role файлы из [директории](./example).
+2. Запустите `docker run --privileged=True -v <path_to_repo>:/opt/vector-role -w /opt/vector-role -it aragast/netology:latest /bin/bash`, где path_to_repo — путь до корня репозитория с vector-role на вашей файловой системе.
+3. Внутри контейнера выполните команду `tox`, посмотрите на вывод.  
+5. Создайте облегчённый сценарий для `molecule` с драйвером `molecule_podman`. Проверьте его на исполнимость.
+6. Пропишите правильную команду в `tox.ini`, чтобы запускался облегчённый сценарий.
+8. Запустите команду `tox`. Убедитесь, что всё отработало успешно.
+9. Добавьте новый тег на коммит с рабочим сценарием в соответствии с семантическим версионированием.  
+Создан новый сценарий tox  
+В файле tox.ini прописано выполнение сценария tox:    
+[tox]  
+minversion = 1.8  
+basepython = python3.6  
+envlist = py{37,39}-ansible{210,30}  
+skipsdist = true  
 
-### Как оформить решение задания
+[testenv]  
+passenv = *  
+deps =  
+    -r tox-requirements.txt  
+    ansible210: ansible<3.0  
+    ansible30: ansible<3.1  
+commands =  
+    {posargs:molecule test -s tox --destroy always}  
+  
 
-Выполненное домашнее задание пришлите в виде ссылки на .md-файл в вашем репозитории.
+В molecule.yml  Указан driver: podman, прописан облегченный сценарий  
+![img.png](img/scenario.png)    
+результат теста (py37 - тест пройден, py39 - неудачно (предупреждение о версии. Но контейнер для теста был взят из задания, поэтому оставила так):
+![img.png](img/test-tox.png)
+После выполнения у вас должно получится два сценария molecule и один tox.ini файл в репозитории. Не забудьте указать в ответе теги решений Tox и Molecule заданий. В качестве решения пришлите ссылку на  ваш репозиторий и скриншоты этапов выполнения задания. 
 
----
+[08-ansible-05-testing](https://github.com/juls-blekh/08-ansible-05-testing.git)  
